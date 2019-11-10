@@ -2,41 +2,120 @@
 <html>
   <head>
     <title>Sujiru</title>
+    <link rel="stylesheet" media="only screen and (max-width: 480px)" href="style/mobilestyle.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
     <script type="text/javascript" src="scripts/randomNumberGenerator.js"></script>
-    <script type="text/javascript" src="scripts/housekeeping.js"></script>
-
+    <script type="text/javascript" src="scripts/grahamTextToNumber.js"></script>
     <script type="text/javascript">
+
+		
 
     	//TO DO: remove testing that uses userTranslation text box as status display
 
-    	$(document).ready(function(){
+    	//check browser speech recognition capability 
+    
+       //check browser compatibility
+           if (!('webkitSpeechRecognition' in window)) {
+               window.alert("Sorry, your Browser does not support the Speech API. Try Chrome 45+");
+               disableStart();
+            } else { console.log("broswer is speech rec compatible"); }
 
+    	$(document).ready(function(){
+    	
     		var score = 0;
     		var lives = 3;
     		var randomNumber;
     		var userTranslation;
 
+        var finalTranscript = "";
+        var recognizing = false;
+        var recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;         
+            recognition.interimResults = true;     // show interim results
+            recognition.lang = 'en-GB';           // specify the language
+
+        //set up recognizer
+        recognition.onstart = function() {
+                recognizing = true;
+                $("#speechRecStatusBanner").html("Say the number loud and clearly");
+                $("#speakButton").html("Click to Stop");
+        };
+        recognition.onerror = function(event) {
+                console.log("There was a recognition error...");
+        };
+        recognition.onend = function() {
+                recognizing = false;
+                $('#speechRecStatusBanner').html("");
+        };
+
+        recognition.onresult = function(event) {
+                var interimTranscript = "";
+
+                // Assemble the transcript from the array of results
+                for (var i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                console.log("interim:  " + interimTranscript);
+                console.log("final:    " + finalTranscript);
+
+                // update the page
+                if(finalTranscript.length > 0) {
+                    $("#userTranslation").val(convertTextToNumber(finalTranscript));
+                    recognition.stop();
+                    $('#speakButton').html("Speak");
+                    recognizing = false;
+                }
+        }; // end recognition.onresult
+
     		$("#startButton").click(function(){
     			disableStart();
     			enableCheck();//change event later to enable check when speech rec is finished
     			randomNumber = generateRan(); 
-    			$("#userTranslation").val(randomNumber); //remove later - testing only
+    			console.log("random number: " + randomNumber);
+    
+             var msg = randomNumber;
+             var utterance = new SpeechSynthesisUtterance();
+             utterance.text = msg;
+             window.speechSynthesis.speak(utterance);
+
     		});
+
+        $("#speakButton").click(function(e){
+          e.preventDefault();
+
+                if (recognizing) {
+                    recognition.stop();
+                    $("#speakButton").html("Speak");
+                    recognizing = false;
+                } else {
+                    finalTranscript = "";
+                    // Request access to the User's microphone and Start recognizing voice input
+                    recognition.start();
+                    $("#speechRecStatusBanner").html("Speak the number loud and clearly");
+                    $("#speakButton").html("listening");
+                    $("#userTranslation").val("");
+                }
+
+        });
 
     		//check user translation on clicking check button
     		$("#checkButton").click(function(){
     			disableCheck();
     			userTranslation = $("#userTranslation").val();
 
-    			//user translation MATCHES random number
+    			//if: user translation MATCHES random number
     			if(userTranslation == randomNumber){
     				$("#userTranslation").val("yes!!!!");
     				score++;
     				$("#score").html(score);
     				enableStart();
     			}
-    			//user transalation does NOT MATCH random number
+    			//else: user transalation does NOT MATCH random number
     			else {
     				$("#userTranslation").val("no:(((");
     				lives--;
@@ -56,12 +135,15 @@
     		
     
 		});
-
+		
 		//disable start button
 		function disableStart(){
 			$("#startButton").prop("disabled",true);
 		}
-
+		//disable start button
+		function disableStart(){
+			$("#startButton").prop("disabled",true);
+		}
 		//disable check button
 		function disableCheck(){
 			$("#checkButton").prop("disabled",true);
@@ -76,14 +158,18 @@
 		function enableCheck(){
 			$("#checkButton").prop("disabled",false);
 		}
+
     	
     </script>
   </head>
 
   <body>
+
+  <div id = "upperPadding"></div>
   <button id="startButton">Start</button>
-  <input type="text" id="userTranslation" size="15"></input>
+  <input type="text" id="userTranslation" size="15"/>
   <button id="checkButton" disabled="true">Check</button><br><br>
+  <button id="speakButton">Speak</button>
   
   <table>
   	<tr>
@@ -93,6 +179,9 @@
   		<th id="score">0</th><th id="lives">3</th>
   	</tr>
   </table>
-  	
+  <div>
+    <span id="speechRecStatusBanner"></span>
+  </div>
+    	
   </body>
  </html>
